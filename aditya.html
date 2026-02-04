@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Presentation Mode: BBA OS Ultimate</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Italiana&family=Manrope:wght@200;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- 1. CORE SETUP --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body {
+            background-color: #000; color: #e0e0e0; font-family: 'Manrope', sans-serif;
+            overflow: hidden; height: 100vh; width: 100vw; display: flex; flex-direction: column;
+        }
+
+        /* --- 2. ASSETS --- */
+        .noise { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.04; pointer-events: none; z-index: 5; }
+
+        #cursor-big { position: fixed; width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); mix-blend-mode: difference; will-change: transform; transition: transform 0.15s ease-out; }
+        #cursor-small { position: fixed; width: 8px; height: 8px; background: white; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); will-change: transform; }
+        @media (hover: none) { #cursor-big, #cursor-small { display: none !important; } * { cursor: default !important; } }
+
+        /* --- 3. START SCREEN & 3D BUTTON --- */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;
+            background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('https://images.unsplash.com/photo-1558494949-ef526b0042a0?q=80&w=2070&auto=format&fit=crop') center/cover;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .start-content { text-align: center; z-index: 10; width: 90%; opacity: 0; transform: translateY(30px); }
+        .tag { font-size: clamp(0.8rem, 2vw, 1rem); letter-spacing: 4px; text-transform: uppercase; color: #00f3ff; margin-bottom: 20px; display: block; font-weight: 600; text-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
+        h1.main-title { font-family: 'Italiana', serif; font-size: clamp(2.5rem, 7vw, 5.5rem); line-height: 1.1; color: #fff; margin-bottom: 40px; font-weight: 400; text-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+
+        /* 3D START BUTTON */
+        .glass-btn {
+            background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.2);
+            border-bottom: 4px solid rgba(255,255,255,0.5); /* 3D Depth */
+            padding: clamp(15px, 2vh, 20px) clamp(40px, 5vw, 60px);
+            border-radius: 12px;
+            color: #fff; font-family: 'Manrope', sans-serif;
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem); letter-spacing: 3px; text-transform: uppercase; font-weight: 600;
+            cursor: pointer; backdrop-filter: blur(20px);
+            transition: all 0.1s ease;
+            position: relative; overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .glass-btn:active { transform: translateY(4px); border-bottom: 1px solid rgba(255,255,255,0.5); box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .glass-btn:hover { background: rgba(255,255,255,0.15); color: #00f3ff; }
+
+        /* --- 4. MAIN INTERFACE --- */
+        #main-interface { opacity: 0; pointer-events: none; width: 100%; height: 100%; position: relative; background: #000; overflow: hidden; }
+
+        /* HEADER */
+        .ppt-header { 
+            position: absolute; top: 0; left: 0; width: 100%; padding: clamp(20px, 3vh, 30px) clamp(20px, 4vw, 50px); 
+            display: flex; justify-content: space-between; align-items: center; z-index: 100; pointer-events: auto; 
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%); 
+            opacity: 0; transform: translateY(-20px); 
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        body.ui-active .ppt-header { opacity: 1; transform: translateY(0); }
+
+        .header-left { display: flex; align-items: center; gap: 20px; }
+
+        .nav-link { text-decoration: none; color: rgba(255,255,255,0.7); font-size: clamp(0.8rem, 1.5vw, 1rem); display: flex; align-items: center; gap: 8px; transition: 0.3s; background: transparent; border: none; cursor: pointer; font-family: 'Manrope'; }
+        .nav-link:hover { opacity: 1; letter-spacing: 1px; color: #00f3ff; }
+
+        /* Motion Button Style */
+        #motionBtn { border: 1px solid rgba(255,255,255,0.2); padding: 8px 20px; border-radius: 30px; background: rgba(255,255,255,0.05); transition: 0.3s; }
+        #motionBtn:hover { background: #00f3ff; color: #000; border-color: #00f3ff; box-shadow: 0 0 15px rgba(0, 243, 255, 0.4); }
+
+        /* CLICK GLOW EFFECT CLASS */
+        .btn-clicked { animation: clickGlow 0.3s ease-out; }
+        @keyframes clickGlow {
+            0% { box-shadow: 0 0 0 rgba(0, 243, 255, 0); transform: scale(1); }
+            50% { box-shadow: 0 0 20px rgba(0, 243, 255, 0.8); transform: scale(0.95); color: #00f3ff; border-color: #00f3ff; }
+            100% { box-shadow: 0 0 0 rgba(0, 243, 255, 0); transform: scale(1); }
+        }
+
+        .slide-counter { font-family: 'Italiana', serif; font-size: clamp(1.2rem, 2.5vw, 1.5rem); color: #fff; }
+        .slide-counter span { font-size: 0.8em; color: #666; font-family: 'Manrope'; margin-left: 5px; }
+
+        /* --- 5. SLIDER STAGE --- */
+        .slider-container {
+            position: relative; width: 100%; height: 100%;
+            perspective: 1500px;
+            transform-style: preserve-3d;
+            overflow: hidden;
+        }
+
+        .slide {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            background: transparent; 
+            opacity: 0; visibility: hidden;
+            will-change: transform, opacity;
+            backface-visibility: hidden;
+        }
+
+        .slide img {
+            width: auto; height: auto;
+            max-width: 92%; max-height: 88%;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        /* --- 6. CONTROLS --- */
+        .control-bar { position: fixed; bottom: clamp(20px, 5vh, 40px); left: 50%; transform: translateX(-50%) translateY(30px); padding: 10px 25px; background: rgba(15, 15, 15, 0.8); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.1); border-radius: 100px; display: flex; align-items: center; gap: clamp(20px, 3vw, 30px); z-index: 100; opacity: 0; width: auto; max-width: 90%; pointer-events: auto; transition: 0.6s cubic-bezier(0.22, 1, 0.36, 1); box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+        body.ui-active .control-bar { opacity: 1; transform: translate(-50%, 0); }
+        .icon-btn { background: transparent; border: none; color: #fff; font-size: clamp(1rem, 2vw, 1.2rem); cursor: pointer; opacity: 0.6; transition: 0.2s; padding: 8px; border-radius: 50%; }
+        .icon-btn:hover { opacity: 1; transform: scale(1.2); color: #00f3ff; }
+        .play-btn { width: clamp(45px, 5vw, 55px); height: clamp(45px, 5vw, 55px); border-radius: 50%; border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; opacity: 1; }
+        .play-btn:hover { background: #fff; color: #000; border-color: #fff; }
+        .progress-line-container { width: clamp(100px, 20vw, 250px); height: 2px; background: rgba(255,255,255,0.1); position: relative; overflow: hidden; border-radius: 2px; }
+        .progress-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: #00f3ff; transition: width 0.4s ease-out; box-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
+
+        @media (max-height: 500px) and (orientation: landscape) { .ppt-header { padding: 10px 30px; } .control-bar { bottom: 15px; padding: 5px 20px; } .glass-btn { padding: 10px 30px; } }
+    </style>
+</head>
+<body>
+    <div class="noise"></div><div id="cursor-big"></div><div id="cursor-small"></div>
+
+    <div id="start-screen"><div class="start-content"><span class="tag">BBA 2nd Semester Project</span><h1 class="main-title">   <br> </h1><button class="glass-btn" id="startBtn">Enter Presentation</button></div></div>
+
+    <div id="main-interface">
+        <header class="ppt-header">
+            <div class="header-left">
+                <a href="index.html" class="nav-link"><i class="fas fa-arrow-left"></i> Home</a>
+                <button id="motionBtn" class="nav-link"><i class="fas fa-film"></i> Motion: 2D</button>
+            </div>
+
+            <div class="slide-counter" id="counter">01 <span>/ 10</span></div>
+            <button class="icon-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+        </header>
+
+        <div class="slider-container" id="slider">
+            <div class="slide"><img src="001.png"></div>
+            <div class="slide"><img src="002.png"></div>
+            <div class="slide"><img src="003.png"></div>
+            <div class="slide"><img src="004.png"></div>
+            <div class="slide"><img src="005.png"></div>
+            <div class="slide"><img src="006.png"></div>
+            <div class="slide"><img src="007.png"></div>
+            <div class="slide"><img src="008.png"></div>
+            <div class="slide"><img src="009.png"></div>
+            <div class="slide"><img src="0010.png"></div>
+        </div>
+
+        <div class="control-bar"><button class="icon-btn" id="prevBtn"><i class="fas fa-chevron-left"></i></button><button class="icon-btn play-btn" id="autoPlayBtn"><i class="fas fa-play" style="margin-left:3px;"></i></button><button class="icon-btn" id="nextBtn"><i class="fas fa-chevron-right"></i></button><div class="progress-line-container"><div class="progress-fill" id="progressBar"></div></div></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        const startBtn = document.getElementById('startBtn'), startScreen = document.getElementById('start-screen'), mainInterface = document.getElementById('main-interface'), slides = document.querySelectorAll('.slide'), counter = document.getElementById('counter'), progressBar = document.getElementById('progressBar');
+        let currentIndex = 0, totalSlides = slides.length, isAnimating = false, isPlaying = false, autoPlayInterval;
+
+        // --- VISUAL CLICK EFFECT HELPER ---
+        function triggerClickEffect(element) {
+            element.classList.remove('btn-clicked');
+            void element.offsetWidth; // Trigger reflow
+            element.classList.add('btn-clicked');
+        }
+
+        // --- MOTION MODE TOGGLE ---
+        let use3D = false; 
+        const motionBtn = document.getElementById('motionBtn');
+
+        motionBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent idle reset glitch
+            triggerClickEffect(motionBtn);
+
+            use3D = !use3D;
+            motionBtn.innerHTML = use3D ? '<i class="fas fa-cube"></i> Motion: 3D' : '<i class="fas fa-film"></i> Motion: 2D';
+
+            // Visual reset for current slide to apply new mode immediately
+            gsap.to(slides[currentIndex], { 
+                scale: 1, rotationY: 0, z: 0, xPercent: 0, opacity: 1, duration: 0.5 
+            });
+        });
+
+        // Init
+        gsap.set(slides, { opacity: 0, visibility: 'hidden' });
+        gsap.set(slides[0], { opacity: 1, visibility: 'visible' });
+
+        // Reveal
+        gsap.to('.start-content', { opacity: 1, y: 0, duration: 1.4, ease: "power3.out", delay: 0.3 });
+        startBtn.addEventListener('click', () => {
+            gsap.to(startScreen, { opacity: 0, duration: 1, ease: "power2.inOut", onComplete: () => {
+                startScreen.style.display = 'none'; mainInterface.style.pointerEvents = 'all'; mainInterface.style.opacity = '1';
+                document.body.classList.add('ui-active'); toggleFullScreen();
+            }});
+        });
+
+        if (window.matchMedia("(hover: hover)").matches) {
+            const cb = document.getElementById('cursor-big'), cs = document.getElementById('cursor-small');
+            let mx = 0, my = 0;
+            document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; gsap.to(cs, {x: mx, y: my, duration: 0}); gsap.to(cb, {x: mx-20, y: my-20, duration: 0.15}); 
+            // Parallax Tilt
+            if(!isAnimating && !use3D) {
+                 const xVal = (window.innerWidth / 2 - mx) / 50;
+                 const yVal = (window.innerHeight / 2 - my) / 50;
+                 gsap.to(slides[currentIndex].querySelector('img'), { rotationY: -xVal, rotationX: yVal, duration: 0.4 });
+            }});
+        }
+
+        // --- MASTER TRANSITION LOGIC ---
+        function changeSlide(direction) {
+            if (isAnimating) return; isAnimating = true;
+            let nextIndex = direction === 'next' ? (currentIndex < totalSlides - 1 ? currentIndex + 1 : 0) : (currentIndex > 0 ? currentIndex - 1 : totalSlides - 1);
+            if(!isPlaying && ((direction === 'next' && currentIndex === totalSlides - 1) || (direction === 'prev' && currentIndex === 0))) { isAnimating = false; return; }
+
+            const currentSlide = slides[currentIndex], upcomingSlide = slides[nextIndex];
+
+            if (use3D) {
+                // *** 3D CUBE TRANSITION ***
+                const rotOut = direction === 'next' ? -70 : 70;
+                const rotIn = direction === 'next' ? 70 : -70;
+
+                gsap.set(upcomingSlide, { visibility: 'visible', opacity: 0, z: -800, rotationY: rotIn, scale: 0.8, xPercent: 0 });
+                const tl = gsap.timeline({ onComplete: finishAnim });
+                tl.to(currentSlide, { z: -800, rotationY: rotOut, opacity: 0, scale: 0.8, duration: 1.3, ease: "power4.inOut" }, 0);
+                tl.to(upcomingSlide, { z: 0, rotationY: 0, opacity: 1, scale: 1, duration: 1.3, ease: "power4.inOut" }, 0.1);
+
+            } else {
+                // *** 2D CINEMATIC TRANSITION ***
+                gsap.set(upcomingSlide, { visibility: 'visible', xPercent: direction === 'next' ? 100 : -100, opacity: 1, scale: 1, rotationY: 0, z: 0 });
+                const tl = gsap.timeline({ onComplete: finishAnim });
+
+                // Current Scale Down & Fade
+                tl.to(currentSlide, { xPercent: direction === 'next' ? -20 : 20, scale: 0.9, opacity: 0, duration: 1, ease: "power3.inOut" }, 0);
+                // Next Slide Slide In
+                tl.to(upcomingSlide, { xPercent: 0, duration: 1, ease: "power3.inOut" }, 0);
+            }
+
+            function finishAnim() {
+                gsap.set(currentSlide, { visibility: 'hidden' }); currentIndex = nextIndex; isAnimating = false; updateUI();
+                gsap.to(currentSlide.querySelector('img'), {rotationX:0, rotationY:0, duration: 0});
+            }
+        }
+
+        function updateUI() {
+            let idx = currentIndex + 1;
+            counter.innerHTML = `${idx < 10 ? '0' + idx : idx} <span>/ ${totalSlides}</span>`;
+            progressBar.style.width = ((idx / totalSlides) * 100) + "%";
+        }
+
+        const nextBtn = document.getElementById('nextBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const autoPlayBtn = document.getElementById('autoPlayBtn');
+
+        nextBtn.addEventListener('click', () => { triggerClickEffect(nextBtn); changeSlide('next'); });
+        prevBtn.addEventListener('click', () => { triggerClickEffect(prevBtn); changeSlide('prev'); });
+
+        let lastScroll = 0;
+        window.addEventListener('wheel', (e) => {
+            const now = Date.now(); if (now - lastScroll < (use3D ? 1300 : 1000)) return; lastScroll = now;
+            e.deltaY > 0 ? changeSlide('next') : changeSlide('prev');
+        }, { passive: true });
+
+        let touchStartX = 0;
+        document.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+        document.addEventListener('touchend', e => {
+            if (e.changedTouches[0].screenX < touchStartX - 60) changeSlide('next');
+            if (e.changedTouches[0].screenX > touchStartX + 60) changeSlide('prev');
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === "ArrowRight" || e.key === "Enter") { triggerClickEffect(nextBtn); changeSlide('next'); }
+            if(e.key === "ArrowLeft") { triggerClickEffect(prevBtn); changeSlide('prev'); }
+            if(e.key === " ") autoPlayBtn.click();
+        });
+
+        autoPlayBtn.addEventListener('click', () => {
+            triggerClickEffect(autoPlayBtn);
+            isPlaying = !isPlaying;
+            if(isPlaying) {
+                autoPlayBtn.innerHTML = '<i class="fas fa-pause"></i>'; autoPlayBtn.style.background = '#fff'; autoPlayBtn.style.color = '#000';
+                autoPlayInterval = setInterval(() => changeSlide('next'), 4000);
+            } else {
+                autoPlayBtn.innerHTML = '<i class="fas fa-play" style="margin-left:3px;"></i>'; autoPlayBtn.style.background = 'transparent'; autoPlayBtn.style.color = '#fff';
+                clearInterval(autoPlayInterval);
+            }
+        });
+
+        function toggleFullScreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(e=>{}); else if (document.exitFullscreen) document.exitFullscreen(); }
+        document.getElementById('fullscreenBtn').addEventListener('click', toggleFullScreen);
+
+        // IDLE TIMER (Controls Header/Footer Visibility)
+        let idleTimer; 
+        function resetIdleTimer() { 
+            document.body.classList.add('ui-active'); 
+            clearTimeout(idleTimer); 
+            idleTimer = setTimeout(() => document.body.classList.remove('ui-active'), 3000); 
+        }
+        ['mousemove', 'touchstart', 'wheel', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, resetIdleTimer));
+
+        updateUI();
+    </script>
+</body>
+</html>

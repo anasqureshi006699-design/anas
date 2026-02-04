@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Cinematic Presentation</title>
+    <style>
+        /* --- RESET & BASIC --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body, html {
+            width: 100%; height: 100%;
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Inter', sans-serif;
+            cursor: none; /* Default hidden, managed by JS */
+        }
+
+        /* --- LOADER --- */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+            color: #fff;
+        }
+        .loader-bar {
+            width: 200px; height: 2px; background: #333; position: relative; overflow: hidden;
+        }
+        .loader-progress {
+            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+            background: #fff; transition: width 0.2s;
+        }
+
+        /* --- GALLERY CONTAINER --- */
+        .gallery-container {
+            position: relative;
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SLIDES --- */
+        .slide {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            background-size: cover;
+            background-position: center;
+            will-change: transform, opacity;
+            z-index: 1;
+        }
+        
+        .slide.active { opacity: 1; z-index: 2; }
+
+        .film-grain {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+            opacity: 0.05;
+            background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
+        }
+
+        /* --- UI LAYER (Controls) --- */
+        .ui-layer {
+            position: absolute;
+            z-index: 10;
+            width: 100%; height: 100%;
+            pointer-events: none; 
+            opacity: 1; /* Initially visible */
+            transition: opacity 0.8s ease; /* Smooth fade effect */
+        }
+
+        /* Hide class for JS to toggle */
+        .ui-hidden {
+            opacity: 0 !important;
+            cursor: none;
+        }
+
+        /* Navigation Arrows */
+        .nav-btn {
+            pointer-events: auto;
+            position: absolute;
+            top: 50%; transform: translateY(-50%);
+            width: 60px; height: 60px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-50%) scale(1.1); }
+        .prev-btn { left: 40px; }
+        .next-btn { right: 40px; }
+
+        /* Bottom Control Bar */
+        .control-bar {
+            pointer-events: auto;
+            position: absolute;
+            bottom: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 20px; align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(20px);
+            padding: 10px 25px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.5s ease;
+        }
+
+        .play-btn {
+            background: none; border: none; color: #fff;
+            font-family: 'Inter', sans-serif; font-weight: 600;
+            text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px;
+            cursor: pointer; display: flex; align-items: center; gap: 10px;
+        }
+        
+        .play-indicator {
+            width: 8px; height: 8px; background: #ff4d4d; border-radius: 50%;
+            box-shadow: 0 0 10px #ff4d4d; transition: background 0.3s;
+        }
+        .play-btn.playing .play-indicator { background: #4dff88; box-shadow: 0 0 10px #4dff88; }
+
+        .counter { color: rgba(255,255,255,0.6); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+        .progress-line { position: absolute; bottom: 0; left: 0; height: 3px; background: #fff; width: 0%; z-index: 20; }
+
+        .back-btn {
+            pointer-events: auto;
+            position: absolute; top: 30px; left: 30px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 8px;
+            z-index: 20;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div style="text-align: center;">
+            <div style="margin-bottom: 10px; font-weight: 300; letter-spacing: 3px;">LOADING EXPERIENCE</div>
+            <div class="loader-bar"><div class="loader-progress" id="load-prog"></div></div>
+        </div>
+    </div>
+
+    <div class="gallery-container">
+        
+        <div class="film-grain"></div>
+        <div class="progress-line" id="progress-line"></div>
+
+        <div class="ui-layer" id="ui-layer">
+            
+            <a href="index.html" class="back-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back
+            </a>
+
+            <div class="nav-btn prev-btn" onclick="manualChange(-1)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+
+            <div class="nav-btn next-btn" onclick="manualChange(1)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+
+            <div class="control-bar">
+                <button class="play-btn" id="play-btn" onclick="toggleAutoPlay()">
+                    <div class="play-indicator"></div>
+                    <span id="play-text">PLAY MOVIE</span>
+                </button>
+                <div style="width: 1px; height: 15px; background: rgba(255,255,255,0.2);"></div>
+                <div class="counter" id="counter">01 / 10</div>
+            </div>
+        </div>
+
+        <div id="slides-wrapper"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <script>
+        // =========================================================
+        //  📂 CONFIGURATION
+        // =========================================================
+        const images = [
+            "1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", 
+            "6.jpg", "7.jpg", "8.jpg", "9.jpg", "10.jpg"
+        ];
+        
+        const AUTO_DURATION = 5; 
+
+        // =========================================================
+        //  ⚙️ LOGIC
+        // =========================================================
+        let currentIndex = 0;
+        let isPlaying = false;
+        let autoTimer;
+        let progressTween;
+
+        const slidesWrapper = document.getElementById('slides-wrapper');
+        const counterEl = document.getElementById('counter');
+        const playBtnText = document.getElementById('play-text');
+        const playBtn = document.getElementById('play-btn');
+
+        // --- 1. LOAD IMAGES ---
+        let loadedCount = 0;
+        const totalImages = images.length;
+
+        images.forEach((src, index) => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                loadedCount++;
+                document.getElementById('load-prog').style.width = `${(loadedCount / totalImages) * 100}%`;
+                
+                const slide = document.createElement('div');
+                slide.className = 'slide';
+                slide.style.backgroundImage = `url('${src}')`;
+                slide.id = `slide-${index}`;
+                slidesWrapper.appendChild(slide);
+
+                if (loadedCount === totalImages) initGallery();
+            };
+            img.onerror = () => { loadedCount++; if (loadedCount === totalImages) initGallery(); }
+        });
+
+        function initGallery() {
+            gsap.to('#loader', { opacity: 0, duration: 1, onComplete: () => {
+                document.getElementById('loader').style.display = 'none';
+            }});
+            showSlide(0);
+            resetInactivityTimer(); // Start the hide timer logic
+        }
+
+        // --- 2. SLIDE LOGIC ---
+        function showSlide(index) {
+            counterEl.innerText = `0${index + 1} / 10`.slice(-7);
+            const currentSlide = document.querySelector('.slide.active');
+            const nextSlide = document.getElementById(`slide-${index}`);
+
+            if (currentSlide) {
+                gsap.to(currentSlide, { opacity: 0, duration: 1.5, ease: "power2.inOut", onComplete: () => {
+                    currentSlide.classList.remove('active');
+                }});
+            }
+
+            nextSlide.classList.add('active');
+            
+            // Ken Burns Effect
+            gsap.fromTo(nextSlide, 
+                { opacity: 0, scale: 1.1 }, 
+                { opacity: 1, scale: 1.0, duration: 1.5, ease: "power2.out" }
+            );
+            gsap.to(nextSlide, { scale: 1.05, duration: AUTO_DURATION + 1, ease: "linear", delay: 1.5 });
+
+            currentIndex = index;
+
+            if (progressTween) progressTween.kill();
+            gsap.set('#progress-line', { width: '0%' });
+
+            if (isPlaying) {
+                progressTween = gsap.to('#progress-line', { width: '100%', duration: AUTO_DURATION, ease: 'linear' });
+                clearTimeout(autoTimer);
+                autoTimer = setTimeout(() => { changeSlide(1); }, AUTO_DURATION * 1000);
+            }
+        }
+
+        function changeSlide(direction) {
+            let nextIndex = currentIndex + direction;
+            if (nextIndex >= images.length) nextIndex = 0;
+            if (nextIndex < 0) nextIndex = images.length - 1;
+            showSlide(nextIndex);
+        }
+
+        function manualChange(direction) {
+            if (isPlaying) toggleAutoPlay(); 
+            changeSlide(direction);
+        }
+
+        function toggleAutoPlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.classList.add('playing');
+                playBtnText.innerText = "PAUSE MOVIE";
+                changeSlide(1);
+            } else {
+                playBtn.classList.remove('playing');
+                playBtnText.innerText = "PLAY MOVIE";
+                clearTimeout(autoTimer);
+                if (progressTween) progressTween.kill();
+                gsap.to('#progress-line', { width: '0%', duration: 0.5 });
+            }
+        }
+
+        // =========================================================
+        //  👁️ AUTO HIDE UI LOGIC (3 SECONDS)
+        // =========================================================
+        let inactivityTimer;
+        const uiLayer = document.getElementById('ui-layer');
+
+        function resetInactivityTimer() {
+            // 1. Show Controls & Cursor
+            uiLayer.classList.remove('ui-hidden');
+            document.body.style.cursor = 'auto';
+
+            // 2. Clear old timer
+            clearTimeout(inactivityTimer);
+
+            // 3. Set new timer to hide after 3 seconds
+            inactivityTimer = setTimeout(() => {
+                uiLayer.classList.add('ui-hidden');
+                document.body.style.cursor = 'none'; // Hide Cursor
+            }, 3000);
+        }
+
+        // Detect User Activity
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('touchstart', resetInactivityTimer);
+        document.addEventListener('keydown', resetInactivityTimer);
+
+    </script>
+</body>
+</html>
